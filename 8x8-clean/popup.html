@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>8x8 Tracker v2</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { width:310px; background:#0d0f14; color:#e2e8f0; font-family:system-ui,sans-serif; font-size:13px; }
+    .header { background:#161a23; border-bottom:1px solid #1e293b; padding:12px 16px; display:flex; align-items:center; gap:10px; }
+    .logo { width:30px; height:30px; background:#00d4ff22; border:1px solid #00d4ff; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#00d4ff; flex-shrink:0; }
+    .header h1 { font-size:13px; font-weight:600; }
+    .header p { font-size:10px; color:#64748b; }
+    .tab-bar { display:flex; background:#161a23; border-bottom:1px solid #1e293b; }
+    .tab-btn { flex:1; padding:9px 4px; font-size:11px; font-weight:600; text-align:center; cursor:pointer; color:#64748b; border:none; background:transparent; border-bottom:2px solid transparent; transition:all .15s; }
+    .tab-btn.active { color:#00d4ff; border-bottom-color:#00d4ff; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+    .section { padding:12px 16px; border-bottom:1px solid #1e293b; }
+    .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#64748b; margin-bottom:8px; }
+    select, input[type="text"] { width:100%; background:#161a23; border:1px solid #252a36; border-radius:8px; color:#e2e8f0; font-size:13px; padding:8px 10px; outline:none; margin-bottom:8px; }
+    select:focus, input:focus { border-color:#00d4ff; }
+    .btn { width:100%; padding:9px; border-radius:8px; border:none; font-size:12px; font-weight:600; cursor:pointer; margin-top:2px; }
+    .btn-cyan { background:#00d4ff; color:#0d0f14; }
+    .btn-ghost { background:transparent; border:1px solid #252a36; color:#94a3b8; }
+    .btn-ghost:hover { border-color:#00d4ff; color:#00d4ff; }
+    .det-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .det-badge { flex:1; min-width:0; display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:20px; border:1px solid #252a36; background:#161a23; font-size:12px; }
+    .det-badge span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    .scan-note { font-size:10px; color:#475569; margin-top:4px; }
+    #breakReminderBanner { display:none; padding:10px 16px; background:#f59e0b15; border-top:2px solid #f59e0b44; flex-direction:column; gap:4px; }
+    #breakReminderBanner.show { display:flex; }
+    #reasonBox { display:none; padding:12px 16px; border-top:2px solid #00d4ff33; background:#0f1420; flex-direction:column; gap:10px; }
+    #reasonBox.show { display:flex; }
+    .rbox-header { display:flex; align-items:center; justify-content:space-between; }
+    .rbox-title { font-size:11px; font-weight:600; }
+    .rbox-chip { font-size:10px; color:#a78bfa; background:#8b5cf615; border:1px solid #8b5cf633; padding:2px 8px; border-radius:20px; }
+    .rbox-sub { font-size:10px; color:#64748b; }
+    textarea { width:100%; background:#161a23; border:1px solid #252a36; border-radius:8px; color:#e2e8f0; font-size:12px; font-family:system-ui,sans-serif; padding:9px 11px; outline:none; resize:none; height:68px; line-height:1.5; transition:border-color .2s; }
+    textarea:focus { border-color:#00d4ff; }
+    textarea::placeholder { color:#2d3748; }
+    .rbox-actions { display:flex; gap:7px; }
+    .rbox-actions .btn { margin-top:0; flex:1; font-size:11px; padding:8px; }
+    .btn-set { background:#00d4ff; color:#0d0f14; }
+    .btn-skip { background:transparent; border:1px solid #252a36; color:#64748b; }
+    .lcu-profile { background:#161a23; border:1px solid #1e293b; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+    .lcu-row { display:flex; gap:8px; }
+    .lcu-row input { margin-bottom:0; }
+    .lcu-field { flex:1; }
+    .field-lbl { font-size:10px; color:#475569; margin-bottom:4px; }
+    .footer { padding:10px 16px; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .toast { position:fixed; bottom:8px; left:50%; transform:translateX(-50%); background:#00d4ff; color:#0d0f14; font-size:11px; font-weight:600; padding:5px 14px; border-radius:20px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; z-index:9998; }
+    .toast.show { opacity:1; }
+
+    /* ── Break Timer tab ── */
+    .bk-card { background:#161a23; border:1px solid #1e293b; border-radius:10px; padding:14px 16px; }
+    .bk-not-on { color:#475569; font-size:12px; text-align:center; padding:6px 0; }
+    .bk-status-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .bk-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .bk-status-label { font-size:12px; font-weight:600; }
+    .bk-elapsed-num { font-size:32px; font-weight:700; font-family:monospace; letter-spacing:.04em; line-height:1; margin-bottom:8px; }
+    .bk-bar-wrap { height:6px; background:#0d1117; border-radius:3px; overflow:hidden; margin-bottom:8px; }
+    .bk-bar-fill { height:100%; border-radius:3px; transition:width .6s,background .6s; }
+    .bk-remain-row { display:flex; align-items:center; justify-content:space-between; }
+    .bk-remain-txt { font-size:12px; font-weight:600; font-family:monospace; }
+    .bk-limit-txt  { font-size:10px; color:#475569; font-family:monospace; }
+    .bk-budget-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #1e293b; }
+    .bk-budget-row:last-child { border-bottom:none; }
+    .bk-budget-icon { font-size:16px; flex-shrink:0; width:22px; text-align:center; }
+    .bk-budget-info { flex:1; min-width:0; }
+    .bk-budget-label { font-size:11px; color:#94a3b8; margin-bottom:4px; }
+    .bk-budget-bar-wrap { height:3px; background:#0d1117; border-radius:2px; overflow:hidden; }
+    .bk-budget-bar-fill { height:100%; border-radius:2px; transition:width .5s; }
+    .bk-budget-time { font-size:11px; font-weight:700; font-family:monospace; text-align:right; white-space:nowrap; flex-shrink:0; }
+    .bk-overdue-badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; text-transform:uppercase; background:#ef444420; border:1px solid #ef444440; color:#f87171; margin-left:4px; vertical-align:middle; }
+
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">8x8</div>
+  <div><h1>Status Tracker</h1><p id="hostLabel">8x8 Agent Workspace</p></div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="status">Status</button>
+  <button class="tab-btn" data-tab="callupdate">Call Update</button>
+  <button class="tab-btn" data-tab="break">Break</button>
+  <button class="tab-btn" data-tab="identity">Identity</button>
+</div>
+
+<!-- STATUS TAB -->
+<div class="tab-panel active" id="tab-status">
+  <div class="section">
+    <div class="lbl">Detected Status</div>
+    <div class="det-row">
+      <div class="det-badge"><div class="dot" id="detDot" style="background:#6b7280"></div><span id="detTxt">Detecting...</span></div>
+      <div id="liveIndicator" style="width:7px;height:7px;border-radius:50%;background:#22c55e;animation:blink 2s infinite;flex-shrink:0" title="Live detection active"></div>
+    </div>
+    <div class="scan-note" id="scanNote">Real-time detection active</div>
+  </div>
+
+  <div id="breakReminderBanner">
+    <div id="breakReminderText" style="font-size:12px;font-weight:600;color:#fbbf24"></div>
+    <div style="font-size:10px;color:#64748b">You may continue — please be mindful of your time.</div>
+  </div>
+  <div id="reasonBox">
+    <div class="rbox-header">
+      <div class="rbox-title">Add a reason <span style="color:#334155;font-weight:400">(optional)</span></div>
+      <div class="rbox-chip" id="rboxChip">—</div>
+    </div>
+    <div class="rbox-sub" id="rboxSub">Describe why you're on this status</div>
+    <textarea id="reasonTxt" placeholder="e.g. Customer requested callback, attending team training..."></textarea>
+    <div class="rbox-actions">
+      <button class="btn btn-skip" id="skipBtn">Skip</button>
+      <button class="btn btn-set"  id="setBtn">Set Status</button>
+    </div>
+  </div>
+  <div class="footer"><button class="btn btn-ghost" id="dashBtn">📊 Open Squad Dashboard</button></div>
+</div>
+
+<!-- CALL UPDATE TAB -->
+<div class="tab-panel" id="tab-callupdate">
+  <div class="section">
+    <div class="lbl">Your Profile <span style="color:#334155;font-weight:400;text-transform:none;letter-spacing:0">(shared)</span></div>
+    <div class="lcu-profile">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b">Pre-filled on all updates</div>
+      <div class="lcu-row">
+        <div class="lcu-field"><div class="field-lbl">Siebel ID</div><input type="text" id="lcuSiebelId" placeholder="e.g. lovegwilla"/></div>
+        <div class="lcu-field"><div class="field-lbl">Team</div><input type="text" id="lcuTeam" placeholder="e.g. Bea"/></div>
+      </div>
+      <div><div class="field-lbl">Skillset</div><input type="text" id="lcuSkillset" placeholder="e.g. PS"/></div>
+      <button class="btn btn-ghost" id="saveProfileBtn" style="margin-top:4px;font-size:11px;padding:7px">Save Profile</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="lbl">Select Update Type</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="showLcuBtn" style="flex:1;margin-top:0;background:#ef444415;border:1px solid #ef444433;color:#f87171;padding:12px;font-size:12px;font-weight:600">📞 Long Call</button>
+      <button class="btn" id="showDcBtn"  style="flex:1;margin-top:0;background:#f59e0b15;border:1px solid #f59e0b33;color:#fbbf24;padding:12px;font-size:12px;font-weight:600">📵 Disconnected</button>
+    </div>
+  </div>
+  <div class="section" id="lcuFormSection" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="lbl" style="margin-bottom:0">📞 Long Call Update</div>
+      <button id="hideLcuBtn" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:11px">✕</button>
+    </div>
+    <div class="field-lbl" style="margin-bottom:4px">Case Number</div><input type="text" id="lcuCaseNum" placeholder="e.g. TM-1234567-A1B2C3"/>
+    <div class="field-lbl" style="margin:6px 0 4px">Issue</div><textarea id="lcuIssue" placeholder="Describe the issue..." style="height:56px;margin-bottom:0"></textarea>
+    <div class="field-lbl" style="margin:6px 0 4px">Reason for long call</div><textarea id="lcuReason" placeholder="Why is this call taking long?" style="height:56px;margin-bottom:0"></textarea>
+    <button class="btn" id="submitLcuBtn" style="margin-top:10px;background:#ef444415;border:1px solid #ef444444;color:#f87171">📤 Submit Long Call Update</button>
+  </div>
+  <div class="section" id="lcuPreviewSection" style="display:none">
+    <div class="lbl">Preview</div>
+    <div id="lcuPreview" style="font-family:monospace;font-size:11px;color:#94a3b8;background:#0d1117;padding:10px;border-radius:8px;white-space:pre-wrap;line-height:1.7"></div>
+  </div>
+  <div class="section" id="dcFormSection" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="lbl" style="margin-bottom:0">📵 Disconnected Call</div>
+      <button id="hideDcBtn" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:11px">✕</button>
+    </div>
+    <div class="field-lbl" style="margin-bottom:4px">Case Number</div><input type="text" id="dcCaseNum" placeholder="e.g. TM-1234567-A1B2C3"/>
+    <div class="field-lbl" style="margin:6px 0 4px">Issue</div><textarea id="dcIssue" placeholder="Describe the issue..." style="height:56px;margin-bottom:0"></textarea>
+    <div class="field-lbl" style="margin:6px 0 4px">Reason for disconnection</div><textarea id="dcReason" placeholder="Why was the call disconnected?" style="height:56px;margin-bottom:0"></textarea>
+    <button class="btn" id="submitDcBtn" style="margin-top:10px;background:#f59e0b15;border:1px solid #f59e0b44;color:#fbbf24">📤 Submit Disconnected Call Update</button>
+  </div>
+  <div class="section" id="dcPreviewSection" style="display:none">
+    <div class="lbl">Preview</div>
+    <div id="dcPreview" style="font-family:monospace;font-size:11px;color:#94a3b8;background:#0d1117;padding:10px;border-radius:8px;white-space:pre-wrap;line-height:1.7"></div>
+  </div>
+</div>
+
+<!-- BREAK TIMER TAB -->
+<div class="tab-panel" id="tab-break">
+  <div class="section">
+    <div class="lbl">Current Break</div>
+    <div class="bk-card" id="bkCurrentCard">
+      <div class="bk-not-on">Not currently on break</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="lbl">Today's Budget</div>
+    <div id="bkBudget"></div>
+  </div>
+</div>
+
+<!-- IDENTITY TAB -->
+<div class="tab-panel" id="tab-identity">
+  <div id="loginView">
+    <div class="section">
+      <div class="lbl">Sign In</div>
+      <div style="font-size:11px;color:#475569;margin-bottom:12px;line-height:1.6">Sign in with your Trend Micro email to use this extension.</div>
+      <div class="field-lbl" style="margin-bottom:4px">Work Email</div>
+      <input id="emailInput" type="email" placeholder="yourname@trendmicro.com" autocomplete="email"/>
+      <button class="btn btn-cyan" id="signInBtn" style="margin-top:4px">Sign In</button>
+      <div id="signInError" style="font-size:11px;color:#f87171;margin-top:6px;display:none"></div>
+    </div>
+  </div>
+  <div id="profileView" style="display:none">
+    <div class="section">
+      <div class="lbl">Signed In As</div>
+      <div style="display:flex;align-items:center;gap:12px;background:#161a23;border:1px solid #1e293b;border-radius:10px;padding:12px 14px">
+        <div id="profileAvatar" style="width:38px;height:38px;border-radius:50%;background:#00d4ff22;border:1px solid #00d4ff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#00d4ff;flex-shrink:0"></div>
+        <div style="min-width:0">
+          <div id="profileName" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          <div id="profileEmail" style="font-size:10px;color:#64748b;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px"></div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" id="signOutBtn" style="margin-top:8px;font-size:11px;padding:7px">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="toast" id="toast"></div>
+<script src="popup.js"></script>
+</body>
+</html>
