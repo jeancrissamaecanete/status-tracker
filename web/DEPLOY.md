@@ -7,7 +7,7 @@ This is Phase 1: backend + extension sync only. No login UI yet — anyone with 
 - **Next.js app** in `web/` — public read dashboard at `/dashboard?squad=<id>` plus two API routes:
   - `POST /api/status` — extension pushes one agent's status (requires `Authorization: Bearer <SQUAD_WRITE_TOKEN>`)
   - `GET /api/squad/[squadId]` — dashboard reads the full squad (currently unauthenticated)
-- **Vercel KV** (Upstash Redis) — stores the squad object keyed by `squad:<id>`
+- **Upstash Redis** (via Vercel Marketplace) — stores the squad object keyed by `squad:<id>`. Vercel KV was deprecated in 2025; Upstash is the same product the old KV wrapped, just consumed directly.
 - **Extension changes** in `8x8-clean/background.js` — every status change is mirrored to the backend in addition to local storage
 
 ## One-time setup
@@ -38,11 +38,14 @@ git push -u origin main
 4. Framework preset: Next.js (auto-detected)
 5. Click **Deploy**. The first build will pass; the API will return 500 until KV + env vars are configured (step 3–4).
 
-### 3. Provision Vercel KV
+### 3. Provision Upstash Redis
 
-1. In the Vercel project dashboard, open the **Storage** tab → **Create Database** → **KV**.
-2. Name it (e.g. `squad-status`) → **Create**.
-3. Vercel auto-injects `KV_REST_API_URL`, `KV_REST_API_TOKEN`, etc. into Preview + Production env. No manual env var copy needed.
+1. In the Vercel project dashboard, open the **Storage** tab → **Create Database**.
+2. Under **Marketplace Database Providers**, pick **Upstash** → **Redis** (Serverless DB).
+3. Name it (e.g. `squad-status`) → choose the free tier and the region closest to you → **Create**.
+4. When prompted, **connect the database to this project** for Production + Preview + Development environments. Vercel auto-injects `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. The code uses `Redis.fromEnv()`, which reads those two vars — no manual copying needed.
+
+> Note: don't pick the standalone "Redis" (Redis Inc.) tile — that one injects a `REDIS_URL` connection string, which `@upstash/redis` can't use without code changes.
 
 ### 4. Set the write token
 
