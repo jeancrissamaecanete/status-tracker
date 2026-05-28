@@ -2,6 +2,18 @@
 (function () {
   "use strict";
 
+  // When the extension is reloaded, the old content script keeps running on
+  // the page but its chrome.* APIs throw "Extension context invalidated".
+  // Detect that and silently bail out of timers/listeners.
+  function extDead() {
+    try { return !chrome.runtime?.id; } catch { return true; }
+  }
+  window.addEventListener("unhandledrejection", e => {
+    if (String(e.reason?.message || e.reason).includes("Extension context invalidated")) {
+      e.preventDefault();
+    }
+  });
+
   const REASON_REQUIRED = new Set([
     "Work Offline — Callback","Work Offline — Case Management","Work Offline — Training",
     "Work Offline — Meeting","Work Offline — Special Task","Work Offline — Production Task",
@@ -462,12 +474,15 @@
 
     // Auto-remove once pendingLongCall is cleared
     const watcher = setInterval(() => {
-      chrome.storage.local.get("pendingLongCall", r => {
-        if (!r.pendingLongCall) {
-          notif.remove();
-          clearInterval(watcher);
-        }
-      });
+      if (extDead()) { clearInterval(watcher); return; }
+      try {
+        chrome.storage.local.get("pendingLongCall", r => {
+          if (!r.pendingLongCall) {
+            notif.remove();
+            clearInterval(watcher);
+          }
+        });
+      } catch { clearInterval(watcher); }
     }, 2000);
   }
 
@@ -476,11 +491,14 @@
     agentId = r.myAgentId || "agent1";
     // Keep agentId fresh — re-read every 5s in case user signs in after page load
     setInterval(async () => {
-      const s = await chrome.storage.local.get("myAgentId");
-      if (s.myAgentId && s.myAgentId !== agentId) {
-        agentId = s.myAgentId;
-        if (currentStatus) chrome.runtime.sendMessage({ type:"STATUS_CHANGE", agentId, status: currentStatus });
-      }
+      if (extDead()) return;
+      try {
+        const s = await chrome.storage.local.get("myAgentId");
+        if (s.myAgentId && s.myAgentId !== agentId) {
+          agentId = s.myAgentId;
+          if (currentStatus) chrome.runtime.sendMessage({ type:"STATUS_CHANGE", agentId, status: currentStatus });
+        }
+      } catch {}
     }, 5000);
     const start = () => {
       scanForStatus();
